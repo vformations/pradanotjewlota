@@ -103,9 +103,6 @@ app.get('/success', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'success.html'));
 });
 
-app.get('/{*path}'
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 app.listen(PORT, () => {
   console.log(`Payment server running on http://localhost:${PORT}`);
