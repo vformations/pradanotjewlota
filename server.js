@@ -13,174 +13,122 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const BASE = 'https://evirtualpay.com/pg/billings/acceleratewizz/payment';
 
+const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCIvFqIbniPqFYzkJS9hg+GLj/fee3e9iEH/P0dufEU1QKGmm/0ie3QNx2NNww5qpPliKeuGytCA1/+MDw5quWHjHbHgn1YF4p+gtzX4IAmReZBlpRVkTCPHnfmyiWBhN5ofaOzBJFllOb8qXOajuJf3snSmYpt15YGJCaIQ0p+xgTxG1MuILGaRlwVJUmqMRJNkoFAQgLmNOsGvKUthI7idiHnY/8KATkpp5Iwd2DQgsLJNVhViQSKgbB0kkrrJaNxH7kIEDspt9b25E5kiH0p53nTRJaSMLtwWTnF81S6YnEeBb+Z1q4In08jP8YlD6/yh2ttZonsZAmAkyBc0HF9AgMBAAECggEAA6JuDZ5SGg9xayF2sqrzkq98Byaoifqk2h+BYt7kZ5dZ39YPD8LyzUwJvw0tiALet4UwX9JdDf4k+Q6zKx09yKKVLaxsRIErrz0vPZW8EkhdXHTyMGwRjFxU9497+7taZhCg30tJyhdxJFoktoEBx2aWmsB2C4FlfXhMheaz/jafTEFRd6iMJKCXJ6k2mKCOE8uJ1Dpf5742vjqR0hTNrHU5i4f0D+k0tq0IcN4udQ/hRvPCEcNFdPeP0X1SjSCXQrvPfInsT4QhAnxZ3P+fPCfgHkAmV/l/Pew4AfDpQHt+wfWXTA9BEjya4IHTDpXSL3Fa8JDJtbWG1B/KWUwmiQKBgQC+4U+6LNnnfBbNF8lrJksd66IUZgYL8uYHOXqX69zNGrvTKee3N0Bsf1sSp5hYn9SJmHsMqCQNyxRhVXaGSX4VnN3rRtIHEE/CPGQpPEK9Xm77EVsjR6zZ3Qk0jSbv/kusv30dNALZlfnfufmlDtIDqATxU/FSUaWTa2t2MGPOWwKBgQC3Ykt90j94h+MsMoDdXO6rJXL6jclRdX66ADTRfv3o+ryokS2SNCWFQuDC2xNystXaIix6evAZsEmhQ2LjuGl7HiqNVgz+sGoPpEHIq28oKtRzRrjd9sXVUPeP7SCSYXQMwKZt1pwdHqJVFt/pLsz9hRD4M1zIIzuXDWwT0rT3BwKBgQCtvV9YUmK0tNn8K96FzQEqZsPMVWDDl3+Qq9zOUz1S4zZ66fWjaoMVPoai4DFm2XQXGddGmfTXKTWPsr6DVHmTKolEEd4x18MBRP7WGaeVvlK96/pMjnzigLJURvZeE9TFlDZJUoIVktExtpFoj6jQ8yosjv9ksjRHjsrtdPYjaQKBgH085tttu6UAAHgNoY4Lyn8dWzGbpTI5cKtsOqYb+SGkIzVnuFyRulIRA1hvrw907LFFB2U6EkEo8I/ualmkdnz7dAoEC2ngZv55qed2lLo0zdRQJy6HOkJdQkSLp+PwJAYVh1OZ7hHA+xHrRk2EhcBZoOYwhZu03BxjsTy0eJv/AoGBALtp9MRHcqo9giinKPNc/f/jEblTA57M8wrzQg+e9020LHF9zkzwz//Z5nc/fGbYUteQ6UdgOPTvnb5GXKtkEb6AHVRRRRbJLsDPZGuruTSsHNfNdmLM8lcp5m1CjmyROd0AFQo1I9RuWWB9WzbDzwik8ED0P3/UKmzHBw/xYbKM-----END PRIVATE KEY-----`;
+
+const API_KEY     = 'xFHJgzDc97hMPpMmv74xhqQL56QwT94k';
+const MID         = '457VPECOM';
+const REDIRECT_URL = 'https://evirtualpay.com/pg/billings/acceleratewizz/payment/complete.php';
+
 function log(label, data) {
   console.log('\n' + '='.repeat(60));
   console.log(`[${new Date().toISOString()}] ${label}`);
   console.log('='.repeat(60));
-  if (typeof data === 'object') {
-    console.log(JSON.stringify(data, null, 2));
-  } else {
-    console.log(data);
-  }
+  console.log(typeof data === 'object' ? JSON.stringify(data, null, 2) : data);
 }
 
 app.post('/api/pay', async (req, res) => {
   const { first_name, last_name, email, mobile, pan, expiry_date, cvv, zip } = req.body;
 
   log('INCOMING REQUEST', {
-    first_name,
-    last_name,
-    email,
-    mobile,
-    pan: pan ? pan.slice(0,4) + '************' : null, // mask for safety
-    expiry_date,
-    cvv: '***',
-    zip,
+    first_name, last_name, email, mobile,
+    pan: pan ? pan.slice(0,4) + '************' : null,
+    expiry_date, cvv: '***', zip,
   });
 
   if (!first_name || !email || !pan || !expiry_date || !cvv || !mobile) {
-    log('VALIDATION FAILED', { missing: { first_name: !first_name, email: !email, pan: !pan, expiry_date: !expiry_date, cvv: !cvv, mobile: !mobile } });
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
-    // ── STEP 1: POST customer info ────────────────────────────────────
-    const step1Body = new URLSearchParams({
-      first_name,
-      last_name:   last_name || '-',
-      email,
-      mobile,
-      description: 'Order payment',
-      country:     'CY',
-      city:        'Limassol',
-      amount:      '107',
-      currency:    'USD',
-      redirectUrl: (process.env.APP_URL || 'http://localhost:' + PORT) + '/success',
+    // POST to checkout form — exact field names from the HTML source
+    const payload = new URLSearchParams({
+      FIRST_NAME:   first_name,
+      LAST_NAME:    last_name || '-',
+      EMAIL:        email,
+      MOBILE:       mobile,
+      DESCRIPTION:  'Order payment',
+      COUNTRY:      'CY',
+      CITY:         'Limassol',
+      AMOUNT:       '107',
+      CURRENCY:     'USD',
+      REQUESTID:    'REQ-' + Date.now(),
+      REDIRECT_URL: REDIRECT_URL,
+      MID:          MID,
+      API_KEY:      API_KEY,
+      PRIVATE_KEY:  PRIVATE_KEY,
     });
 
-    log('STEP 1 — REQUEST TO VIRTUAL PAY', {
+    log('POSTING TO VIRTUAL PAY', {
       url: `${BASE}/index.php`,
-      method: 'POST',
-      body: Object.fromEntries(step1Body),
+      fields: {
+        FIRST_NAME: first_name,
+        LAST_NAME: last_name,
+        EMAIL: email,
+        MOBILE: mobile,
+        AMOUNT: '107',
+        CURRENCY: 'USD',
+        COUNTRY: 'CY',
+        MID: MID,
+        API_KEY: API_KEY.slice(0,8) + '...',
+      }
     });
 
-    const step1 = await fetch(`${BASE}/index.php`, {
+    const response = await fetch(`${BASE}/index.php`, {
       method:   'POST',
       redirect: 'manual',
       headers: {
-        'Content-Type':  'application/x-www-form-urlencoded',
-        'User-Agent':    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept':        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Content-Type':    'application/x-www-form-urlencoded',
+        'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Origin':        'https://evirtualpay.com',
-        'Referer':       `${BASE}/checkout.html`,
+        'Origin':          'https://evirtualpay.com',
+        'Referer':         `${BASE}/checkout.html`,
       },
-      body: step1Body.toString(),
+      body: payload.toString(),
     });
 
-    const step1Status   = step1.status;
-    const step1Headers  = Object.fromEntries(step1.headers.entries());
-    const step1Cookies  = step1.headers.get('set-cookie') || '';
-    const step1Location = step1.headers.get('location')   || '';
-    const step1Body2    = await step1.text();
+    const status   = response.status;
+    const headers  = Object.fromEntries(response.headers.entries());
+    const location = response.headers.get('location') || '';
+    const cookies  = response.headers.get('set-cookie') || '';
+    const bodyText = await response.text();
 
-    log('STEP 1 — RESPONSE', {
-      status:   step1Status,
-      location: step1Location,
-      cookies:  step1Cookies,
-      headers:  step1Headers,
-      body_preview: step1Body2.slice(0, 500),
+    log('VIRTUAL PAY RESPONSE', {
+      status,
+      location,
+      cookies,
+      headers,
+      body_length: bodyText.length,
+      body_preview: bodyText.slice(0, 1000),
     });
 
-    if ([301,302,303,307,308].includes(step1Status) && step1Location) {
-      const target = step1Location.startsWith('http') ? step1Location : `${BASE}/${step1Location}`;
-      log('STEP 1 REDIRECT → SENDING TO CLIENT', { redirectUrl: target });
+    // Got a redirect → send to client
+    if ([301,302,303,307,308].includes(status) && location) {
+      const target = location.startsWith('http') ? location : `${BASE}/${location}`;
+      log('REDIRECT → CLIENT', { redirectUrl: target });
       return res.json({ redirectUrl: target });
     }
 
-    // ── STEP 2: POST card data with cookies ───────────────────────────
-    const step2Body = new URLSearchParams({
-      pan,
-      expiry_date,
-      cvv,
-      zip:            zip || '',
-      payment_method: 'card',
-      channel:        'card',
-      first_name,
-      last_name:      last_name || '-',
-      email,
-      mobile,
-      amount:         '107',
-      currency:       'USD',
-      country:        'CY',
-      redirectUrl:    (process.env.APP_URL || 'http://localhost:' + PORT) + '/success',
-    });
-
-    log('STEP 2 — REQUEST TO VIRTUAL PAY', {
-      url: `${BASE}/index.php`,
-      method: 'POST',
-      cookies_sent: step1Cookies,
-      body: { ...Object.fromEntries(step2Body), pan: pan.slice(0,4)+'************', cvv: '***' },
-    });
-
-    const step2 = await fetch(`${BASE}/index.php`, {
-      method:   'POST',
-      redirect: 'manual',
-      headers: {
-        'Content-Type':  'application/x-www-form-urlencoded',
-        'User-Agent':    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept':        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Origin':        'https://evirtualpay.com',
-        'Referer':       `${BASE}/index.php`,
-        'Cookie':        step1Cookies,
-      },
-      body: step2Body.toString(),
-    });
-
-    const step2Status   = step2.status;
-    const step2Headers  = Object.fromEntries(step2.headers.entries());
-    const step2Location = step2.headers.get('location') || '';
-    const step2BodyText = await step2.text();
-
-    log('STEP 2 — RESPONSE', {
-      status:   step2Status,
-      location: step2Location,
-      headers:  step2Headers,
-      body_preview: step2BodyText.slice(0, 800),
-      body_length: step2BodyText.length,
-    });
-
-    if ([301,302,303,307,308].includes(step2Status) && step2Location) {
-      const target = step2Location.startsWith('http') ? step2Location : `${BASE}/${step2Location}`;
-      log('STEP 2 REDIRECT → SENDING TO CLIENT', { redirectUrl: target });
-      return res.json({ redirectUrl: target });
-    }
-
-    // Look for 3DS or ACS URL inside the response body
-    const urlMatch = step2BodyText.match(/https?:\/\/[^\s"'<>]*(3ds|cardinal|acs|authenticate|songbird)[^\s"'<>]*/i);
+    // Look for 3DS/ACS URL in body
+    const urlMatch = bodyText.match(/https?:\/\/[^\s"'<>]*(3ds|cardinal|acs|authenticate|songbird|secure)[^\s"'<>]*/i);
     if (urlMatch) {
-      log('FOUND 3DS URL IN BODY', { redirectUrl: urlMatch[0] });
+      log('FOUND URL IN BODY', { redirectUrl: urlMatch[0] });
       return res.json({ redirectUrl: urlMatch[0] });
     }
 
-    // Look for meta refresh redirect
-    const metaMatch = step2BodyText.match(/content=["']?\d+;\s*url=([^"'\s>]+)/i);
+    // Meta refresh
+    const metaMatch = bodyText.match(/content=["']?\d+;\s*url=([^"'\s>]+)/i);
     if (metaMatch) {
-      log('FOUND META REFRESH', { redirectUrl: metaMatch[1] });
+      log('META REFRESH', { redirectUrl: metaMatch[1] });
       return res.json({ redirectUrl: metaMatch[1] });
     }
 
-    // Nothing found — return full debug to client
-    log('NO REDIRECT FOUND — returning debug to client', { status: step2Status });
-    return res.json({
-      status: step2Status,
-      debug:  step2BodyText.slice(0, 3000),
-    });
+    log('NO REDIRECT — returning debug');
+    return res.json({ status, debug: bodyText.slice(0, 3000) });
 
   } catch (err) {
-    log('FATAL ERROR', { message: err.message, stack: err.stack });
-    return res.status(500).json({ error: 'Payment relay failed: ' + err.message });
+    log('FATAL ERROR', { message: err.message });
+    return res.status(500).json({ error: 'Relay failed: ' + err.message });
   }
 });
 
