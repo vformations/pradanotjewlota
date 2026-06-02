@@ -320,24 +320,19 @@
     };
 
     try {
-      const resp = await fetch('/api/pay', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
+      // POST form data — server returns the Virtual Pay card page as HTML
+      // We create a hidden form and submit it so the browser navigates to /checkout
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/pay';
+      form.style.display = 'none';
+      Object.entries(payload).forEach(([k, v]) => {
+        const input = document.createElement('input');
+        input.name = k; input.value = v;
+        form.appendChild(input);
       });
-
-      const data = await resp.json();
-
-      if(data.redirectUrl) {
-        // Server got the 3DS URL — redirect the full browser to it
-        window.location.href = data.redirectUrl;
-        return;
-      }
-
-      // Server returned debug info — show it so we can troubleshoot
-      globalErr.textContent = data.error || 'Unexpected response from payment gateway. Check console for details.';
-      globalErr.classList.add('show');
-      console.log('Gateway response:', data);
+      document.body.appendChild(form);
+      form.submit();
 
     } catch(err) {
       globalErr.textContent = 'Network error — could not reach the payment server. Please try again.';
